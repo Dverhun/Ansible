@@ -1,0 +1,85 @@
+---
+- hosts: Ansible.testt
+  user: root
+
+  vars:
+    net_interf: [ 'enp0s8' ]
+##    ipv4.conf.enp0s@: [ net.ipv4.conf.enp0s8.forwarding = 1 ]
+  tasks:
+
+  - name: Update the system
+    yum:
+      name=*
+      state=latest
+
+  - name: isntall packets
+    yum: name={{ item }} state=installed
+    with_items:
+    - nano
+    - mc.x86_64
+    - net-tools
+    - dhcp.x86_64
+    - telnet.x86_64
+    - iptables-services.x86_64
+    - libselinux-python.x86_64
+
+  - name: install bind-utils
+    yum: name=bind-utils state=installed
+
+  - name: install needed network manager libs for nmcli
+    yum: name={{ item }} state=installed
+    with_items:
+    - NetworkManager-glib
+    - nm-connection-editor.x86_64
+    - libsemanage-python
+    - policycoreutils-python
+
+
+  - name: Setup networking (resolv.conf)
+    template: owner=root group=root mode=777
+              src=/etc/ansible/Templates/resolv.conf
+              dest=/etc/resolv.conf
+
+
+  - name: Setup networking (interface)
+    template: owner=root group=root mode=777
+              src=/etc/ansible/Templates/ifcfg-enp0s8
+              dest=/etc/sysconfig/network-scripts/ifcfg-{{ item }}
+    with_items: "{{ net_interf }}"
+
+
+  - name: restart network service
+    service: name=network state=restarted
+
+
+  - name: Shell nmcli enp0s8 configurate + connect enp0s8 + Add DNS in resolv.conf for enp0s8
+    shell: |
+      nmcli c add type ethernet con-name enp0s8 ifname enp0s8 ip4 192.168.150.1/24 
+      nmcli device connect enp0s8
+      nmcli c mod enp0s8 ipv4.dns 192.168.1.1
+
+  - name: enable forwardinf trafic via enp0s8. exchanging sysctl.conf
+    lineinfile:
+      dest: /etc/sysctl.conf
+      regexp: '^'
+      line: 'net.ipv4.conf.enp0s8.forwarding = 1'
+      state: present
+
+  - name: copy dhcpd.conf
+    template: owner=root group=root mode=777
+              src=/etc/ansible/Templates/dhcpd.conf.university
+              dest=/etc/dhcp/dhcpd.conf
+
+  - name: add NAT rule in iptable
+    shell: |
+      iptables -t nat -A POSTROUTING -o enp0s3 -s 192.168.120.0/24 -j MASQUERADE
+
+  - name: add dhcpd.service in autoran and turn on dhcpd.service
+    shell: |
+      systemctl enable dhcpd.service/
+      systemctl start dhcpd.service
+
+
+
+
+
