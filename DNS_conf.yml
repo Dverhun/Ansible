@@ -1,0 +1,55 @@
+---
+- hosts: Ansible.testt
+  user: root
+
+  tasks:
+
+  - name: install updates
+    yum: 
+      name=*
+      state=latest
+
+  - name: dowload needed packets
+    yum: name={{ item }} state=installed
+    with_items:
+    - bind
+    - bind-utils
+
+#  - name: setup name.conf and add zones
+#    template: owner=root mode=755
+#              src=/etc/ansible/Templates/named.conf
+#              dest=/etc/named.conf
+#
+#  - name: setup dima-local.test.zone
+#    template: owner=root mode=755
+#              src=/etc/ansible/Templates/dima-local.test.net.zone.test
+#              dest=/var/named/dima-local.test.net.zone
+#
+#  - name: setup reserve.dima-local.test.zone
+#    template: owner=root mode=755 
+#              src=/etc/ansible/Templates/reserve.dima-local.test.net.zone.test
+#              dest=/var/named/reverse.dima-local.test.net.zone
+
+  - name: start DNS server
+    shell: |
+      systemctl start named.service
+
+  - name: status DNS server 
+    shell: |
+      systemctl -l status named.service
+    register: out 
+
+  - debug: var=out.stdout_lines
+
+- hosts: MasterVD
+  user: root
+  
+  tasks: 
+  - name: install updates
+    yum:
+      name=*
+      state=latest
+
+
+
+
